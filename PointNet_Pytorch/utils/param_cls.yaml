@@ -1,0 +1,10 @@
+  # The control parameter of train classification
+  batchSize: 32        # type=int, default=32, help=input batch size
+  num_points: 2500     # type=int, default=2500, help=input point nums
+  workers: 4           # type=int, default=4, help=number of data loading workers
+  epoch: 10            # type=int, default=250, help=number of epochs to train for
+  outf: ""             # type=str, default='cls', help=output folder
+  model: ""            # type=str, default='', help=model path
+  dataset: ""          # type=str, required=True, help=dataset path
+  dataset_type: ""     # type=str, default='shapenet', help=dataset type shapenet|modelnet40
+  feature_transform:   # action='store_true', help="use feature transform")
