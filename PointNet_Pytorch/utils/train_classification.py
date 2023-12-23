@@ -10,7 +10,7 @@ from pointnet.dataset import ShapeNetDataset, ModelNetDataset
 from pointnet.model import PointNetCls, feature_transform_regularizer
 import torch.nn.functional as F
 from tqdm import tqdm
-import yaml
+from torch.utils.tensorboard import SummaryWriter
 
 
 def train():
@@ -27,6 +27,7 @@ def train():
     opt = parser.parse_args()
     print(opt)
 
+    # 定义蓝色的RGB值
     blue = lambda x: '\033[94m' + x + '\033[0m'
 
     opt.manualSeed = random.randint(1, 10000)  # fix seed (随机选了一个)
@@ -99,11 +100,15 @@ def train():
     # 算Batch数
     num_batch = len(train_dataset) / opt.batchSize
 
+    train_loss_rec = SummaryWriter("training_loss_logs")
+    train_acc_rec = SummaryWriter("training_acc_logs")
+    val_loss_rec = SummaryWriter("val_loss_logs")
+    val_acc_rec = SummaryWriter("val_acc_logs")
     # 开始epoch的训练
     for epoch in range(opt.epoch):
         # 一轮epoch后更新学习率
-
-        for i, data in enumerate(traindataloader, 0):
+        # for i, data in enumerate(tqdm((traindataloader, 0), desc=f" Training Epoch= {epoch+1}/{opt.epoch}")):
+        for i, data in enumerate(tqdm(traindataloader, desc=f" Training Epoch= {epoch + 1}/{opt.epoch}")):
             points, target = data
             # 取所有行的第0列
             # target = target[:, 0]
@@ -127,13 +132,15 @@ def train():
             optimizer.step()
             pred_choice = pred.data.max(1)[1]
             correct = pred_choice.eq(target.data).cpu().sum()
-            print('[%d: %d/%d] train loss: %f accuracy: %f' % (epoch, i, num_batch, loss.item(), correct.item() / float(opt.batchSize)))
+            train_loss_rec.add_scalar(f"Train Loss in Epoch:{epoch+1}", loss.item(), i)
+            train_acc_rec.add_scalar(f"Train Accuracy in Epoch:{epoch + 1}", correct.item() / float(opt.batchSize), i)
+            # print('[%d: %d/%d] train loss: %f accuracy: %f' % (epoch, i, num_batch, loss.item(), correct.item() / float(opt.batchSize)))
 
             # 每训练10次val一次
             if i % 10 == 0:
                 j, data = next(enumerate(testdataloader, 0))
                 points, target = data
-                target = target[:, 0]
+                # target = target[:, 0]
                 points = points.transpose(2, 1)
                 points, target = points.cuda(), target.cuda()
                 classifier = classifier.eval()
@@ -141,10 +148,16 @@ def train():
                 loss = F.nll_loss(pred, target)
                 pred_choice = pred.data.max(1)[1]
                 correct = pred_choice.eq(target.data).cpu().sum()
-                print('[%d: %d/%d] %s loss: %f accuracy: %f' % (epoch, i, num_batch, blue('test'), loss.item(), correct.item()/float(opt.batchSize)))
+                val_loss_rec.add_scalar(f"Val Loss in Epoch:{epoch + 1}", loss.item(), i)
+                val_acc_rec.add_scalar(f"Val Accuracy in Epoch:{epoch + 1}", correct.item() / float(opt.batchSize), i)
+                # print('[%d: %d/%d] %s loss: %f accuracy: %f' % (epoch, i, num_batch, blue('test'), loss.item(), correct.item()/float(opt.batchSize)))
         scheduler.step()
         # 每个epoch模型都保存
-        torch.save(classifier.state_dict(), '%s/cls_model_%d.pth' % (opt.outf, epoch))
+        torch.save(classifier.state_dict(), '%s/cls_model_%d.pth' % (opt.output_folder, epoch))
+    train_loss_rec.close()
+    train_acc_rec.close()
+    val_loss_rec.close()
+    val_acc_rec.close()
 
     total_correct = 0
     total_testset = 0
@@ -160,7 +173,6 @@ def train():
         correct = pred_choice.eq(target.data).cpu().sum()
         total_correct += correct.item()
         total_testset += points.size()[0]
-
     print("final accuracy {}".format(total_correct / float(total_testset)))
 
 
