@@ -18,7 +18,7 @@ def train():
     parser.add_argument('--batchSize', type=int, default=32, help='input batch size')
     parser.add_argument('--num_points', type=int, default=7500, help='input batch size')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-    parser.add_argument('--epoch', type=int, default=5, help='number of epochs to train for')
+    parser.add_argument('--epoch', type=int, default=100, help='number of epochs to train for')
     parser.add_argument('--output_folder', type=str, default='cls_model', help='output folder')
     parser.add_argument('--model', type=str, default='', help='model path')
     parser.add_argument('--dataset', type=str, default='/home/alex/Dataset/PC_Lesson/modelnet_40', help="dataset path")
@@ -132,12 +132,19 @@ def train():
             optimizer.step()
             pred_choice = pred.data.max(1)[1]
             correct = pred_choice.eq(target.data).cpu().sum()
-            train_loss_rec.add_scalar(f"Train Loss in Epoch:{epoch+1}", loss.item(), i)
-            train_acc_rec.add_scalar(f"Train Accuracy in Epoch:{epoch + 1}", correct.item() / float(opt.batchSize), i)
+            train_loss_rec.add_scalar(f"Train Loss",
+                                      loss.item(),
+                                      epoch*len(traindataloader)+i)
+            train_acc_rec.add_scalar(f"Train Accuracy",
+                                     correct.item() / float(opt.batchSize),
+                                     epoch*len(traindataloader)+i)
+            # train_loss_rec.add_scalar(f"Train Loss in Epoch:{epoch+1}", loss.item(), i)
+            # train_acc_rec.add_scalar(f"Train Accuracy in Epoch:{epoch + 1}", correct.item() / float(opt.batchSize), i)
             # print('[%d: %d/%d] train loss: %f accuracy: %f' % (epoch, i, num_batch, loss.item(), correct.item() / float(opt.batchSize)))
 
             # 每训练10次val一次
             if i % 10 == 0:
+                # 用当前的下一个来val
                 j, data = next(enumerate(testdataloader, 0))
                 points, target = data
                 # target = target[:, 0]
@@ -148,12 +155,18 @@ def train():
                 loss = F.nll_loss(pred, target)
                 pred_choice = pred.data.max(1)[1]
                 correct = pred_choice.eq(target.data).cpu().sum()
-                val_loss_rec.add_scalar(f"Val Loss in Epoch:{epoch + 1}", loss.item(), i)
-                val_acc_rec.add_scalar(f"Val Accuracy in Epoch:{epoch + 1}", correct.item() / float(opt.batchSize), i)
+                train_loss_rec.add_scalar(f"Val Loss",
+                                          loss.item(),
+                                          epoch * len(traindataloader) + i)
+                train_acc_rec.add_scalar(f"Val Accuracy",
+                                         correct.item() / float(opt.batchSize),
+                                         epoch * len(traindataloader) + i)
+                # val_loss_rec.add_scalar(f"Val Loss in Epoch:{epoch + 1}", loss.item(), i)
+                # val_acc_rec.add_scalar(f"Val Accuracy in Epoch:{epoch + 1}", correct.item() / float(opt.batchSize), i)
                 # print('[%d: %d/%d] %s loss: %f accuracy: %f' % (epoch, i, num_batch, blue('test'), loss.item(), correct.item()/float(opt.batchSize)))
         scheduler.step()
         # 每个epoch模型都保存
-        torch.save(classifier.state_dict(), '%s/cls_model_%d.pth' % (opt.output_folder, epoch))
+        torch.save(classifier.state_dict(), '%s/cls_model_epoch%d.pth' % (opt.output_folder, epoch))
     train_loss_rec.close()
     train_acc_rec.close()
     val_loss_rec.close()
