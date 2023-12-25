@@ -9,7 +9,8 @@ from pointnet.model import PointNetCls
 import torch.nn.functional as F
 
 
-#showpoints(np.random.randn(2500,3), c1 = np.random.uniform(0,1,size = (2500)))
+# 展示点云分类test结果的acc
+# showpoints(np.random.randn(2500,3), c1 = np.random.uniform(0,1,size = (2500)))
 
 parser = argparse.ArgumentParser()
 

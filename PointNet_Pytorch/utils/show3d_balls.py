@@ -7,6 +7,7 @@ mousex, mousey = 0.5, 0.5
 zoom = 1.0
 changed = True
 
+
 def onmouse(*args):
     global mousex, mousey, changed
     y = args[1]
@@ -15,12 +16,15 @@ def onmouse(*args):
     mousey = y / float(showsz)
     changed = True
 
+
 cv2.namedWindow('show3d')
 cv2.moveWindow('show3d', 0, 0)
 cv2.setMouseCallback('show3d', onmouse)
 
 dll = np.ctypeslib.load_library('render_balls_so', '.')
 
+
+# 一个结果展示函数
 def showpoints(xyz,c_gt=None, c_pred = None, waittime=0, 
     showrot=False, magnifyBlue=0, freezerot=False, background=(0,0,0), 
     normalizecolor=True, ballradius=10):
@@ -37,12 +41,10 @@ def showpoints(xyz,c_gt=None, c_pred = None, waittime=0,
         c1 = c_gt[:, 1]
         c2 = c_gt[:, 2]
 
-
     if normalizecolor:
         c0 /= (c0.max() + 1e-14) / 255.0
         c1 /= (c1.max() + 1e-14) / 255.0
         c2 /= (c2.max() + 1e-14) / 255.0
-
 
     c0 = np.require(c0, 'float32', 'C')
     c1 = np.require(c1, 'float32', 'C')
@@ -158,6 +160,7 @@ def showpoints(xyz,c_gt=None, c_pred = None, waittime=0,
         if waittime!=0:
             break
     return cmd
+
 
 if __name__ == '__main__':
     np.random.seed(100)

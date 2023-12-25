@@ -8,8 +8,7 @@ shapenetcore_partanno_segmentation_benchmark_v0/
 cls/
 seg/
 *.egg-info/
-utils/training_acc_logs/
-utils/training_loss_logs/
-utils/val_acc_logs/
-utils/val_loss_logs/
+utils/acc_logs/
+utils/loss_logs/
 utils/cls_model/
+utils/seg_model/

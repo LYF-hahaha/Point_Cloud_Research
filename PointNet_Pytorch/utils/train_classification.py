@@ -21,7 +21,7 @@ def train():
     parser.add_argument('--epoch', type=int, default=100, help='number of epochs to train for')
     parser.add_argument('--output_folder', type=str, default='cls_model', help='output folder')
     parser.add_argument('--model', type=str, default='', help='model path')
-    parser.add_argument('--dataset', type=str, default='/home/alex/Dataset/PC_Lesson/modelnet_40', help="dataset path")
+    parser.add_argument('--dataset', type=str, default='/home/alex/Dataset/PC_Lesson/Chapter_05/modelnet_40', help="dataset path")
     parser.add_argument('--dataset_type', type=str, default='modelnet40', help="dataset type shapenet or modelnet40")
     parser.add_argument('--feature_transform', action='store_true', help="use feature transform")
     opt = parser.parse_args()
@@ -100,10 +100,8 @@ def train():
     # 算Batch数
     num_batch = len(train_dataset) / opt.batchSize
 
-    train_loss_rec = SummaryWriter("training_loss_logs")
-    train_acc_rec = SummaryWriter("training_acc_logs")
-    val_loss_rec = SummaryWriter("val_loss_logs")
-    val_acc_rec = SummaryWriter("val_acc_logs")
+    loss_rec = SummaryWriter("loss_logs")
+    acc_rec = SummaryWriter("acc_logs")
     # 开始epoch的训练
     for epoch in range(opt.epoch):
         # 一轮epoch后更新学习率
@@ -132,10 +130,10 @@ def train():
             optimizer.step()
             pred_choice = pred.data.max(1)[1]
             correct = pred_choice.eq(target.data).cpu().sum()
-            train_loss_rec.add_scalar(f"Train Loss",
+            loss_rec.add_scalar(f"Train Loss",
                                       loss.item(),
                                       epoch*len(traindataloader)+i)
-            train_acc_rec.add_scalar(f"Train Accuracy",
+            acc_rec.add_scalar(f"Train Accuracy",
                                      correct.item() / float(opt.batchSize),
                                      epoch*len(traindataloader)+i)
             # train_loss_rec.add_scalar(f"Train Loss in Epoch:{epoch+1}", loss.item(), i)
@@ -155,10 +153,10 @@ def train():
                 loss = F.nll_loss(pred, target)
                 pred_choice = pred.data.max(1)[1]
                 correct = pred_choice.eq(target.data).cpu().sum()
-                train_loss_rec.add_scalar(f"Val Loss",
+                loss_rec.add_scalar(f"Val Loss",
                                           loss.item(),
                                           epoch * len(traindataloader) + i)
-                train_acc_rec.add_scalar(f"Val Accuracy",
+                acc_rec.add_scalar(f"Val Accuracy",
                                          correct.item() / float(opt.batchSize),
                                          epoch * len(traindataloader) + i)
                 # val_loss_rec.add_scalar(f"Val Loss in Epoch:{epoch + 1}", loss.item(), i)
@@ -167,10 +165,8 @@ def train():
         scheduler.step()
         # 每个epoch模型都保存
         torch.save(classifier.state_dict(), '%s/cls_model_epoch%d.pth' % (opt.output_folder, epoch))
-    train_loss_rec.close()
-    train_acc_rec.close()
-    val_loss_rec.close()
-    val_acc_rec.close()
+    loss_rec.close()
+    acc_rec.close()
 
     total_correct = 0
     total_testset = 0

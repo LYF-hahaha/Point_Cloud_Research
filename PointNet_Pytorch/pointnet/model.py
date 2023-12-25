@@ -111,6 +111,7 @@ class STNkd(nn.Module):
 class PointNetfeat(nn.Module):
     def __init__(self, global_feat = True, feature_transform = False):
         super(PointNetfeat, self).__init__()
+        # T-Net(做特征主方向转换的可学习网络)
         self.stn = STN3d()
         self.conv1 = torch.nn.Conv1d(3, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
@@ -162,7 +163,7 @@ class PointNetfeat(nn.Module):
             return torch.cat([x, pointfeat], 1), trans, trans_feat
 
 
-# 分类网络
+# 分类网络，接收的是Global Feature
 class PointNetCls(nn.Module):
     def __init__(self, k=2, feature_transform=False):
         super(PointNetCls, self).__init__()
@@ -188,15 +189,19 @@ class PointNetCls(nn.Module):
         return F.log_softmax(x, dim=1), trans, trans_feat
 
 
+# 分割网络，接收的是 Global+Local Feature
 class PointNetDenseCls(nn.Module):
     def __init__(self, k = 2, feature_transform=False):
         super(PointNetDenseCls, self).__init__()
-        self.k = k
-        self.feature_transform=feature_transform
-        self.feat = PointNetfeat(global_feat=False, feature_transform=feature_transform)
+        self.k = k  # 分类的类别数
+        self.feature_transform = feature_transform
+        self.feat = PointNetfeat(global_feat=False,  # 实例化对象的时候就说明了要融合特征，不要全局的
+                                 feature_transform=feature_transform)
+        # 1088=64+1024
         self.conv1 = torch.nn.Conv1d(1088, 512, 1)
         self.conv2 = torch.nn.Conv1d(512, 256, 1)
         self.conv3 = torch.nn.Conv1d(256, 128, 1)
+        # 从n×128到n×m，n代表点的个数，m代表这个点属于m个类别的概率
         self.conv4 = torch.nn.Conv1d(128, self.k, 1)
         self.bn1 = nn.BatchNorm1d(512)
         self.bn2 = nn.BatchNorm1d(256)
@@ -210,8 +215,10 @@ class PointNetDenseCls(nn.Module):
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
         x = self.conv4(x)
-        x = x.transpose(2,1).contiguous()
-        x = F.log_softmax(x.view(-1,self.k), dim=-1)
+        x = x.transpose(2, 1).contiguous()
+        x = F.log_softmax(x.view(-1, self.k), dim=-1)
+        # n_pts是点的数量
+        # 最后输出的k维向量表达了n_pts中点i属于各个类别的概率
         x = x.view(batchsize, n_pts, self.k)
         return x, trans, trans_feat
 

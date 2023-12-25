@@ -57,6 +57,8 @@ def gen_modelnet_id(root):
 
 
 class ShapeNetDataset(data.Dataset):
+    # 划分训练集和测试集
+    # 将原始点云和gt按类别对应好，并返回包含其绝对路径的list or dict
     def __init__(self,
                  root,
                  npoints=2500,
@@ -67,7 +69,7 @@ class ShapeNetDataset(data.Dataset):
         self.npoints = npoints
         self.root = root
         self.catfile = os.path.join(self.root, 'synsetoffset2category.txt')
-        self.cat = {}
+        self.cat = {}   # 记录类别名及其编号
         self.data_augmentation = data_augmentation
         self.classification = classification
         self.seg_classes = {}
@@ -76,30 +78,39 @@ class ShapeNetDataset(data.Dataset):
             for line in f:
                 ls = line.strip().split()
                 self.cat[ls[0]] = ls[1]
-        #print(self.cat)
+        # print(self.cat)
+        # 只对某一类进行分割
         if not class_choice is None:
             self.cat = {k: v for k, v in self.cat.items() if k in class_choice}
 
         self.id2cat = {v: k for k, v in self.cat.items()}
 
-        self.meta = {}
+        self.meta = {}  # 记录类别的什么用的？
+        # 训练&测试划分文件（其实这个划分也有讲究的吧）
         splitfile = os.path.join(self.root, 'train_test_split', 'shuffled_{}_file_list.json'.format(split))
-        #from IPython import embed; embed()
+        # from IPython import embed; embed()
+        # 按逗号load的？
         filelist = json.load(open(splitfile, 'r'))
+        # 先按类别填充字典的"键"
+        # meta的键是"字母"
         for item in self.cat:
             self.meta[item] = []
 
         for file in filelist:
+            # 这里的category在文件中已经是编码了
             _, category, uuid = file.split('/')
             if category in self.cat.values():
+                # 记录"原始点云和对应的分割gt"文件的绝对路径，并append成list
                 self.meta[self.id2cat[category]].append((os.path.join(self.root, category, 'points', uuid+'.pts'),
                                         os.path.join(self.root, category, 'points_label', uuid+'.seg')))
 
         self.datapath = []
         for item in self.cat:
             for fn in self.meta[item]:
+                # 类别名 点云文件 分割gt
                 self.datapath.append((item, fn[0], fn[1]))
-
+        # zip: 将对象中对应的元素打包成一个个元组，然后返回由这些元组组成的列表
+        # dict:
         self.classes = dict(zip(sorted(self.cat), range(len(self.cat))))
         print(self.classes)
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../misc/num_seg_classes.txt'), 'r') as f:
@@ -109,28 +120,35 @@ class ShapeNetDataset(data.Dataset):
         self.num_seg_classes = self.seg_classes[list(self.cat.keys())[0]]
         print(self.seg_classes, self.num_seg_classes)
 
+    # 返回下采样后的点云以及cls or seg inidex
     def __getitem__(self, index):
         fn = self.datapath[index]
         cls = self.classes[self.datapath[index][0]]
+        # 点云文件
         point_set = np.loadtxt(fn[1]).astype(np.float32)
+        # seg_gt文件
         seg = np.loadtxt(fn[2]).astype(np.int64)
-        #print(point_set.shape, seg.shape)
-
+        # print(point_set.shape, seg.shape)
+        # 点云文件的点的个数与seg_gt中点的个数对齐
         choice = np.random.choice(len(seg), self.npoints, replace=True)
-        #resample
+        # resample
         point_set = point_set[choice, :]
-
-        point_set = point_set - np.expand_dims(np.mean(point_set, axis = 0), 0) # center
-        dist = np.max(np.sqrt(np.sum(point_set ** 2, axis = 1)),0)
-        point_set = point_set / dist #scale
+        # center
+        point_set = point_set - np.expand_dims(np.mean(point_set, axis = 0), 0)
+        dist = np.max(np.sqrt(np.sum(point_set ** 2, axis = 1)), 0)
+        # scale
+        point_set = point_set / dist
 
         if self.data_augmentation:
-            theta = np.random.uniform(0,np.pi*2)
-            rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)],[np.sin(theta), np.cos(theta)]])
-            point_set[:,[0,2]] = point_set[:,[0,2]].dot(rotation_matrix) # random rotation
-            point_set += np.random.normal(0, 0.02, size=point_set.shape) # random jitter
-
+            # 随机生成旋转角度
+            theta = np.random.uniform(0, np.pi*2)
+            # 生成旋转矩阵（2×2的）
+            rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+            point_set[:, [0, 2]] = point_set[:, [0, 2]].dot(rotation_matrix)  # random rotation
+            point_set += np.random.normal(0, 0.02, size=point_set.shape)  # random jitter
+        # seg也下采样
         seg = seg[choice]
+        # 转换成tensor
         point_set = torch.from_numpy(point_set)
         seg = torch.from_numpy(seg)
         cls = torch.from_numpy(np.array([cls]).astype(np.int64))

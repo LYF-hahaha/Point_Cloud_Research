@@ -11,7 +11,8 @@ from pointnet.model import PointNetDenseCls
 import matplotlib.pyplot as plt
 
 
-#showpoints(np.random.randn(2500,3), c1 = np.random.uniform(0,1,size = (2500)))
+# 展示点云分割结果的acc
+# showpoints(np.random.randn(2500,3), c1 = np.random.uniform(0,1,size = (2500)))
 
 parser = argparse.ArgumentParser()
 
@@ -36,11 +37,13 @@ point, seg = d[idx]
 print(point.size(), seg.size())
 point_np = point.numpy()
 
+# 颜色数组
 cmap = plt.cm.get_cmap("hsv", 10)
 cmap = np.array([cmap(i) for i in range(10)])[:, :3]
 gt = cmap[seg.numpy() - 1, :]
 
 state_dict = torch.load(opt.model)
+# 稠密分类→分割
 classifier = PointNetDenseCls(k= state_dict['conv4.weight'].size()[0])
 classifier.load_state_dict(state_dict)
 classifier.eval()
@@ -48,12 +51,13 @@ classifier.eval()
 point = point.transpose(1, 0).contiguous()
 
 point = Variable(point.view(1, point.size()[0], point.size()[1]))
+# 分割结果
 pred, _, _ = classifier(point)
 pred_choice = pred.data.max(2)[1]
 print(pred_choice)
 
-#print(pred_choice.size())
+# print(pred_choice.size())
 pred_color = cmap[pred_choice.numpy()[0], :]
 
-#print(pred_color.shape)
+# print(pred_color.shape)
 showpoints(point_np, gt, pred_color)
